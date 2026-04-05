@@ -59,8 +59,8 @@ lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=20
 #     shutil.rmtree('train_logs')  # ---> console (see tensorboard): tensorboard --logdir = dir of train_logs  --host=127.0.0.1
 # writer = SummaryWriter('./train_logs(model-Trans)/')
 
-model_folder = "Trained_model/"
-writer = SummaryWriter("train_logs/"+model_folder)
+timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+writer = SummaryWriter(f'./runs/{timestamp}')
 def save_checkpoint(model, epoch):  # save model function
 
     model_out_path = model_folder + "{}.pth".format(epoch)
