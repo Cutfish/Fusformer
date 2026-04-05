@@ -165,7 +165,7 @@ def train(training_data_loader, validate_data_loader,start_epoch=0,RESUME=False)
     writer.close()  # close tensorboard
 
 def test():
-    file_path = "demo_cave_patches.h5" if os.path.exists("demo_cave_patches.h5") else "demo_cave.h5"
+    file_path = "./test_demo/demo_cave_patches.h5" if os.path.exists("./test_demo/demo_cave_patches.h5") else "./test_demo/demo_cave.h5"
     print("Using test file:", file_path)
     test_set = DatasetFromHdf5(file_path)
     print(torch.cuda.get_device_name(0))
@@ -195,22 +195,25 @@ def test():
         output_HRHSI[iteration-1,:,:,:] = output_HRHSIone.permute([0, 2, 3, 1]).cpu().detach().numpy()
         UP_LRHSI[iteration-1,:,:,:] = UP_LRHSIone.permute([0, 2, 3, 1]).cpu().detach().numpy()
         Highpass[iteration - 1, :, :, :] = Highpassone.permute([0, 2, 3, 1]).cpu().detach().numpy()
+        print("Testing: {}/{}".format(iteration, num_testing))
     sio.savemat('PatchOutput-cave.mat',{'output': output_HRHSI})
+    print(output_HRHSI.shape)
+    print(output_HRHSI)
 ###################################################################
 # ------------------- Main Function  -------------------
 ###################################################################
 if __name__ == "__main__":
-    train_or_not = 0
-    test_or_not = 1
+    train_or_not = 1
+    test_or_not = 0
 
     if train_or_not:
         print(torch.cuda.is_available())
         print(torch.cuda.get_device_name(0))
         print(torch.cuda.device_count())
-        train_set = DatasetFromHdf5('train_cave.h5')  # creat data for training
+        train_set = DatasetFromHdf5('CAVEh5\Train_CAVE.h5')  # creat data for training
         training_data_loader = DataLoader(dataset=train_set, num_workers=0, batch_size=batch_size, shuffle=True,
                                           pin_memory=True, drop_last=True)  # put training data to DataLoader for batches
-        validate_set = DatasetFromHdf5('validation_cave.h5')  # creat data for validation
+        validate_set = DatasetFromHdf5('CAVEh5\Valid_CAVE.h5')  # creat data for validation
         validate_data_loader = DataLoader(dataset=validate_set, num_workers=0, batch_size=batch_size, shuffle=True,
                                           pin_memory=True, drop_last=True)  # put training data to DataLoader for batches
         train(training_data_loader, validate_data_loader)#, start_epoch=200)  # call train function (call: Line 53)
