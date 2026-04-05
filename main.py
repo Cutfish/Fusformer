@@ -210,10 +210,10 @@ if __name__ == "__main__":
         print(torch.cuda.is_available())
         print(torch.cuda.get_device_name(0))
         print(torch.cuda.device_count())
-        train_set = DatasetFromHdf5('..\Data\CAVEh5\Train_CAVE.h5')  # creat data for training
+        train_set = DatasetFromHdf5('../Data/CAVEh5/Train_CAVE.h5')  # creat data for training
         training_data_loader = DataLoader(dataset=train_set, num_workers=0, batch_size=batch_size, shuffle=True,
                                           pin_memory=True, drop_last=True)  # put training data to DataLoader for batches
-        validate_set = DatasetFromHdf5('..\Data\CAVEh5\Valid_CAVE.h5')  # creat data for validation
+        validate_set = DatasetFromHdf5('../Data/CAVEh5/Valid_CAVE.h5')  # creat data for validation
         validate_data_loader = DataLoader(dataset=validate_set, num_workers=0, batch_size=batch_size, shuffle=True,
                                           pin_memory=True, drop_last=True)  # put training data to DataLoader for batches
         train(training_data_loader, validate_data_loader)#, start_epoch=200)  # call train function (call: Line 53)
