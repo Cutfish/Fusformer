@@ -60,7 +60,7 @@ lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=20
 # writer = SummaryWriter('./train_logs(model-Trans)/')
 
 model_folder = "Trained_model/"
-writer = SummaryWriter("train_logs/ "+model_folder)
+writer = SummaryWriter("train_logs/"+model_folder)
 def save_checkpoint(model, epoch):  # save model function
 
     model_out_path = model_folder + "{}.pth".format(epoch)
