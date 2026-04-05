@@ -165,7 +165,9 @@ def train(training_data_loader, validate_data_loader,start_epoch=0,RESUME=False)
     writer.close()  # close tensorboard
 
 def test():
-    test_set = DatasetFromHdf5("demo_cave_patches.h5")
+    file_path = "demo_cave_patches.h5" if os.path.exists("demo_cave_patches.h5") else "demo_cave.h5"
+    print("Using test file:", file_path)
+    test_set = DatasetFromHdf5(file_path)
     print(torch.cuda.get_device_name(0))
     num_testing = 64
     testing_data_loader = DataLoader(dataset=test_set, num_workers=0, batch_size=1)
