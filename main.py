@@ -2,6 +2,7 @@
 # Author: Jin-Fan Hu
 
 import os
+from datetime import datetime
 import torch
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
@@ -105,6 +106,18 @@ def train(training_data_loader, validate_data_loader,start_epoch=0,RESUME=False)
         model.train()
 
         for iteration, batch in enumerate(training_data_loader, 1):
+            # 打印下loader的shape
+            # training_data_loader len is  1045
+            # batch len is 3
+            # GT shape: torch.Size([3, 31, 64, 64])
+            # LRHSI shape: torch.Size([3, 31, 16, 16])
+            # HRMSI shape: torch.Size([3, 3, 64, 64])
+            if epoch == 1 and iteration == 1:
+                print("training_data_loader len is ", len(training_data_loader))
+                print("batch len is", len(batch))
+                print("GT shape:", batch[0].shape)
+                print("LRHSI shape:", batch[1].shape)
+                print("HRMSI shape:", batch[2].shape)
             GT, LRHSI, HRMSI  = batch[0].cuda(), batch[1].cuda(), batch[2].cuda()
 
             optimizer.zero_grad()  # fixed
