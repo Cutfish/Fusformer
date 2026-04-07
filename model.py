@@ -111,12 +111,13 @@ class Residual(nn.Module):
 class PreNorm(nn.Module):
     def __init__(self, dim, fn):
         super().__init__()
-        self.norm = nn.LayerNorm(dim)
+        self.norm = nn.LayerNorm(dim) # 48
         self.fn = fn
 
     def forward(self, x, **kwargs):
         return self.fn(self.norm(x), **kwargs)
-
+    # norm 对于一个batch的每个样本进行归一化，即对同一个位置的所有通道进行归一化
+    # 3 * 1024 * 48，就是 3 个样本，每个样本 1024 个位置，每个位置 48 个通道，每个位置的均值等于0，标准差是1
 
 class FeedForward(nn.Module):
     def __init__(self, dim, hidden_dim, dropout=0.):
@@ -133,8 +134,9 @@ class FeedForward(nn.Module):
         return self.net(x)
 
 
+# dropout = 0.意味着放弃丢弃，也就是相当于没有这一层
 class Attention(nn.Module):
-    def __init__(self, dim, heads, dim_head, dropout=0.):
+    def __init__(self, dim=48, heads=3, dim_head=16, dropout=0.):  # 默认值来自 Transformer_E 的调用参数
         super().__init__()
         inner_dim = dim_head * heads
         project_out = not (heads == 1 and dim_head == dim)
@@ -142,18 +144,24 @@ class Attention(nn.Module):
         self.heads = heads
         self.scale = dim_head ** -0.5
 
-        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias=False)
+        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias=False) # 48 -> 48 * 3
 
         self.to_out = nn.Sequential(
-            nn.Linear(inner_dim, dim),
+            nn.Linear(inner_dim, dim), # 48 -> 48
             nn.Dropout(dropout)
-        ) if project_out else nn.Identity()
+        ) if project_out else nn.Identity() # nn.Identity()相当于什么都不做
 
     def forward(self, x, mask=None):
-        b, n, _, h = *x.shape, self.heads
-        qkv = self.to_qkv(x).chunk(3, dim=-1)
+        # 3 * 4096 * 48 * 3
+        b, n, _, h = *x.shape, self.heads 
+        # 3*4096*48 -> 3*4096*(48*3) -> (3*4096*48)* 3
+        qkv = self.to_qkv(x).chunk(3, dim=-1) 
+        # 将 Q/K/V 的最后一维(48) 拆分为多头结构: [b, n, 48] -> [b, h=3, n=4096, d=16]
+        # h: 注意力头数, d: 每个头的维度(dim_head), 48 = 3*16
+        # q、k、v 的形状都是 [b=3, h=3, n=4096, d=16]
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=h), qkv)
 
+        # 计算注意力分数矩阵[3, 3, 4096, 4096] （d没有了，所以是d被（点积）求和消掉）
         dots = torch.einsum('b h i d, b h j d -> b h i j', q, k) * self.scale
         mask_value = -torch.finfo(dots.dtype).max
 
@@ -171,7 +179,7 @@ class Attention(nn.Module):
         out = self.to_out(out)
         return out
 
-# Transformer编码器：提取特征，保持形状 [b, 4096, 48]
+# Transformer编码器：提取特征，保持形状 [b, 4096, 48], dim = 48
 class Transformer_E(nn.Module):
     def __init__(self, dim, depth=2, heads=3, dim_head=16, mlp_dim=48, sp_sz=64*64, num_channels = 48,dropout=0.):
         super().__init__()
