@@ -48,20 +48,52 @@ class MainNet(nn.Module):
         )
 
     def forward(self, HSI, MSI):
+        # 输入数据形状说明：
+        # HSI: 低分辨率高光谱图像 LRHSI, shape: [b, 31, 16, 16]
+        # MSI: 高分辨率多光谱图像 HRMSI, shape: [b, 3, 64, 64]
+        
         ################LR-HSI###################
+        # 上采样低分辨率高光谱图像: [b, 31, 16, 16] -> [b, 31, 64, 64]
+        # 第1行：使用双三次插值将低分辨率HSI上采样4倍，空间尺寸从16x16变为64x64
+        # 输入: HSI [b, 31, 16, 16] -> 输出: UP_LRHSI [b, 31, 64, 64]
         UP_LRHSI = F.interpolate(HSI,scale_factor=4, mode='bicubic') ### (b N h w)
+        # 第2行：将像素值裁剪到[0,1]范围，防止插值后出现超出范围的值
         UP_LRHSI = UP_LRHSI.clamp_(0,1)
-        sz= UP_LRHSI.size(2)
+        # 第3行：获取特征图的高度（或宽度，因为H=W=64），用于后续reshape操作
+        sz= UP_LRHSI.size(2)  # sz = 64
+        
+        # 第4行：在通道维度(dim=1)拼接上采样的HSI和MSI
+        # UP_LRHSI [b, 31, 64, 64] + MSI [b, 3, 64, 64] -> Data [b, 34, 64, 64]
         Data = torch.cat((UP_LRHSI,MSI),1)
+        # 第5-6行：使用einops的rearrange将图像格式转换为序列格式
+        # 将空间维度H和W合并为一个序列长度：64*64=4096
+        # Data [b, 34, 64, 64] -> E [b, 4096, 34]
+        # 其中每个序列位置包含一个像素点的所有通道信息
         E = rearrange(Data, 'B c H W -> B (H W) c', H = sz)
+        
+        # 特征嵌入：将通道数从34映射到48维特征 [b, 4096, 34] -> [b, 4096, 48]
         E = self.Embedding(E)
+        
+        # Transformer编码器：提取特征，保持形状 [b, 4096, 48]
         Code = self.T_E(E)
+        
+        # Transformer解码器：进一步处理特征，保持形状 [b, 4096, 48]
         Highpass = self.T_D(Code)
+        
+        # 重排回图像格式：[b, 4096, 48] -> [b, 48, 64, 64]
         Highpass = rearrange(Highpass,'B (H W) C -> B C H W', H = sz)
+        
+        # 精炼网络：将特征通道数从48调整为31 [b, 48, 64, 64] -> [b, 31, 64, 64]
         Highpass = self.refine(Highpass)
+        
+        # 残差连接：高频信息 + 上采样的低分辨率图像 [b, 31, 64, 64]
         output = Highpass + UP_LRHSI
         output = output.clamp_(0,1)
 
+        # 输出说明：
+        # output: 最终融合的高分辨率高光谱图像, shape: [b, 31, 64, 64]
+        # UP_LRHSI: 上采样的低分辨率高光谱图像, shape: [b, 31, 64, 64]
+        # Highpass: 学习到的高频细节信息, shape: [b, 31, 64, 64]
         return output,UP_LRHSI,Highpass
 
 
@@ -139,7 +171,7 @@ class Attention(nn.Module):
         out = self.to_out(out)
         return out
 
-
+# Transformer编码器：提取特征，保持形状 [b, 4096, 48]
 class Transformer_E(nn.Module):
     def __init__(self, dim, depth=2, heads=3, dim_head=16, mlp_dim=48, sp_sz=64*64, num_channels = 48,dropout=0.):
         super().__init__()
