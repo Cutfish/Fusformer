@@ -142,7 +142,7 @@ class Attention(nn.Module):
         project_out = not (heads == 1 and dim_head == dim)
 
         self.heads = heads
-        self.scale = dim_head ** -0.5
+        self.scale = dim_head ** -0.5 # 0.25
 
         self.to_qkv = nn.Linear(dim, inner_dim * 3, bias=False) # 48 -> 48 * 3
 
@@ -163,20 +163,37 @@ class Attention(nn.Module):
 
         # 计算注意力分数矩阵[3, 3, 4096, 4096] （d没有了，所以是d被（点积）求和消掉）
         dots = torch.einsum('b h i d, b h j d -> b h i j', q, k) * self.scale
+        
+        # 创建掩码填充值：取浮点类型的最小值（即负无穷大）
+        # 这样经过softmax后，这些位置的权重会趋近于0，达到"屏蔽"效果
         mask_value = -torch.finfo(dots.dtype).max
 
         if mask is not None:
+            # 展平mask的第一维（序列长度维），并在前面填充一个True（用于CLS token）
             mask = F.pad(mask.flatten(1), (1, 0), value=True)
             assert mask.shape[-1] == dots.shape[-1], 'mask has incorrect dimensions'
+            # 将mask扩展为注意力矩阵的形状：[b, i] -> [b, (), i, ()]
             mask = rearrange(mask, 'b i -> b () i ()') * rearrange(mask, 'b j -> b () () j')
+            # 用负无穷大填充需要mask的位置
             dots.masked_fill_(~mask, mask_value)
             del mask
 
+        # Softmax归一化：将注意力分数转换为概率分布（各行和为1）（仍然是[3, 3, 4096, 4096]）
+        # shape: [b, h, n, n]，表示每个头对每个位置查询对所有键的注意力权重
         attn = dots.softmax(dim=-1)
 
+        # 加权聚合Value向量：用注意力权重对V进行加权求和
+        # [3, 3, 4096, 4096] * [b=3, h=3, n=4096, d=16] = [b=3, h=3, n=4096, d=16]
+        # shape: [b, h, n, n] x [b, h, n, d] -> [b, h, n, d]
         out = torch.einsum('b h i j, b h j d -> b h i d', attn, v)
+
+        # 多头拼接：将多个头的输出合并回原始维度
+        # shape: [b, h, n, d] -> [b, n, h*d]，即 [b=3, h=3, n=4096, d=16] -> [b, 4096, 48]
         out = rearrange(out, 'b h n d -> b n (h d)')
+
+        # 输出线性投影 + Dropout：将拼接后的结果映射回原始维度
         out = self.to_out(out)
+
         return out
 
 # Transformer编码器：提取特征，保持形状 [b, 4096, 48], dim = 48
