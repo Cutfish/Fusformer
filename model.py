@@ -139,7 +139,7 @@ class Attention(nn.Module):
     def __init__(self, dim=48, heads=3, dim_head=16, dropout=0.):  # 默认值来自 Transformer_E 的调用参数
         super().__init__()
         inner_dim = dim_head * heads
-        project_out = not (heads == 1 and dim_head == dim)
+        project_out = not (heads == 1 and dim_head == dim) # 如果使用了多头注意力
 
         self.heads = heads
         self.scale = dim_head ** -0.5 # 0.25
