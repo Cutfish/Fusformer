@@ -37,7 +37,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
 lr = 1e-3
 epochs = 1000
 ckpt_step = 50
-batch_size = 3
+batch_size = 3 # 15G显存可以支持6的size
 
 model = MainNet().cuda()
 # model = nn.DataParallel(model)
